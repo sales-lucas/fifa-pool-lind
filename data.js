@@ -1,0 +1,73 @@
+const GROUPS = {
+  A: ["Mexico", "South Africa", "South Korea", "Czech Republic"],
+  B: ["Canada", "Bosnia and Herzegovina", "Qatar", "Switzerland"],
+  C: ["Brazil", "Morocco", "Haiti", "Scotland"],
+  D: ["United States", "Paraguay", "Australia", "Turkey"],
+  E: ["Germany", "Curaçao", "Ivory Coast", "Ecuador"],
+  F: ["Netherlands", "Japan", "Sweden", "Tunisia"],
+  G: ["Belgium", "Egypt", "Iran", "New Zealand"],
+  H: ["Spain", "Cape Verde", "Saudi Arabia", "Uruguay"],
+  I: ["France", "Senegal", "Iraq", "Norway"],
+  J: ["Argentina", "Algeria", "Austria", "Jordan"],
+  K: ["Portugal", "DR Congo", "Uzbekistan", "Colombia"],
+  L: ["England", "Croatia", "Ghana", "Panama"],
+};
+
+const TEAM_FLAGS = {
+  Mexico: "🇲🇽",
+  "South Africa": "🇿🇦",
+  "South Korea": "🇰🇷",
+  "Czech Republic": "🇨🇿",
+  Canada: "🇨🇦",
+  "Bosnia and Herzegovina": "🇧🇦",
+  Qatar: "🇶🇦",
+  Switzerland: "🇨🇭",
+  Brazil: "🇧🇷",
+  Morocco: "🇲🇦",
+  Haiti: "🇭🇹",
+  Scotland: "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
+  "United States": "🇺🇸",
+  Paraguay: "🇵🇾",
+  Australia: "🇦🇺",
+  Turkey: "🇹🇷",
+  Germany: "🇩🇪",
+  Curaçao: "🇨🇼",
+  "Ivory Coast": "🇨🇮",
+  Ecuador: "🇪🇨",
+  Netherlands: "🇳🇱",
+  Japan: "🇯🇵",
+  Sweden: "🇸🇪",
+  Tunisia: "🇹🇳",
+  Belgium: "🇧🇪",
+  Egypt: "🇪🇬",
+  Iran: "🇮🇷",
+  "New Zealand": "🇳🇿",
+  Spain: "🇪🇸",
+  "Cape Verde": "🇨🇻",
+  "Saudi Arabia": "🇸🇦",
+  Uruguay: "🇺🇾",
+  France: "🇫🇷",
+  Senegal: "🇸🇳",
+  Iraq: "🇮🇶",
+  Norway: "🇳🇴",
+  Argentina: "🇦🇷",
+  Algeria: "🇩🇿",
+  Austria: "🇦🇹",
+  Jordan: "🇯🇴",
+  Portugal: "🇵🇹",
+  "DR Congo": "🇨🇩",
+  Uzbekistan: "🇺🇿",
+  Colombia: "🇨🇴",
+  England: "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+  Croatia: "🇭🇷",
+  Ghana: "🇬🇭",
+  Panama: "🇵🇦",
+};
+
+const GROUP_KEYS = Object.keys(GROUPS);
+const ALL_TEAMS = Object.values(GROUPS).flat().sort((a, b) => a.localeCompare(b));
+
+function teamLabel(name) {
+  const flag = TEAM_FLAGS[name] || "";
+  return flag ? `${flag} ${name}` : name;
+}
