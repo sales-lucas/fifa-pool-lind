@@ -1,10 +1,23 @@
 (function () {
   const KNOCKOUT_ROUNDS = [
-    { id: "qf", label: "Quarter-finalist", count: 8, containerId: "qf-grid" },
-    { id: "sf", label: "Semi-finalist", count: 4, containerId: "sf-grid" },
-    { id: "final", label: "Finalist", count: 2, containerId: "final-grid" },
-    { id: "champion", label: "Champion", count: 1, containerId: "champion-grid" },
+    { id: "qf", label: "Quarter-finalist", count: 8, containerId: "qf-grid", placeholder: "Pick from group winners…" },
+    { id: "sf", label: "Semi-finalist", count: 4, containerId: "sf-grid", placeholder: "Pick from quarter-finalists…" },
+    { id: "final", label: "Finalist", count: 2, containerId: "final-grid", placeholder: "Pick from semi-finalists…" },
+    { id: "champion", label: "Champion", count: 1, containerId: "champion-grid", placeholder: "Pick from finalists…" },
   ];
+
+  const PARENT_ROUND = {
+    sf: "qf",
+    final: "sf",
+    champion: "final",
+  };
+
+  const EMPTY_PLACEHOLDERS = {
+    qf: "Complete group winners first…",
+    sf: "Pick quarter-finalists first…",
+    final: "Pick semi-finalists first…",
+    champion: "Pick finalists first…",
+  };
 
   const playerNameInput = document.getElementById("player-name");
   const groupsGrid = document.getElementById("groups-grid");
@@ -17,31 +30,106 @@
   const shareGroupsTable = document.querySelector("#share-groups-table tbody");
   const shareKnockoutList = document.getElementById("share-knockout-list");
 
-  function createSelect(options, placeholder, dataAttr) {
+  function createKnockoutSelect(round, index) {
     const select = document.createElement("select");
-    select.dataset[dataAttr.key] = dataAttr.value;
+    select.dataset.round = `${round.id}-${index}`;
+    select.dataset.roundType = round.id;
+    select.id = `${round.id}-${index}`;
     select.required = true;
+    select.disabled = true;
+
+    select.addEventListener("change", () => {
+      select.classList.toggle("has-value", select.value !== "");
+      clearValidationUI();
+      updateKnockoutCascade(round.id);
+    });
+
+    return select;
+  }
+
+  function setSelectOptions(select, teams, placeholder) {
+    const current = select.value;
+    const keepCurrent = current && teams.includes(current);
+
+    select.innerHTML = "";
 
     const empty = document.createElement("option");
     empty.value = "";
     empty.textContent = placeholder;
     empty.disabled = true;
-    empty.selected = true;
+    empty.selected = !keepCurrent;
     select.appendChild(empty);
 
-    options.forEach((team) => {
+    teams.forEach((team) => {
       const option = document.createElement("option");
       option.value = team;
       option.textContent = teamLabel(team);
+      if (team === current) option.selected = true;
       select.appendChild(option);
     });
 
-    select.addEventListener("change", () => {
-      select.classList.toggle("has-value", select.value !== "");
-      clearValidationUI();
-    });
+    if (keepCurrent) {
+      select.value = current;
+      select.classList.add("has-value");
+    } else {
+      select.value = "";
+      select.classList.remove("has-value");
+    }
 
-    return select;
+    select.disabled = teams.length === 0;
+  }
+
+  function getGroupWinners() {
+    return GROUP_KEYS.map((key) => {
+      const select = document.querySelector(`select[data-group="${key}"]`);
+      return select ? select.value : "";
+    }).filter(Boolean);
+  }
+
+  function getRoundSelections(roundId) {
+    return Array.from(document.querySelectorAll(`[data-round-type="${roundId}"]`)).map(
+      (select) => select.value
+    );
+  }
+
+  function getKnockoutPool(roundId) {
+    if (roundId === "qf") {
+      return [...new Set(getGroupWinners())].sort((a, b) => a.localeCompare(b));
+    }
+
+    const parentRound = PARENT_ROUND[roundId];
+    const parentSelections = getRoundSelections(parentRound).filter(Boolean);
+    return [...new Set(parentSelections)].sort((a, b) => a.localeCompare(b));
+  }
+
+  function getOptionsForSelect(roundId, select) {
+    const pool = getKnockoutPool(roundId);
+    const taken = Array.from(document.querySelectorAll(`[data-round-type="${roundId}"]`))
+      .filter((el) => el !== select && el.value)
+      .map((el) => el.value);
+
+    return pool.filter((team) => !taken.includes(team));
+  }
+
+  function updateRoundSelects(roundId, startFromRoundId) {
+    const round = KNOCKOUT_ROUNDS.find((r) => r.id === roundId);
+    if (!round) return;
+
+    const pool = getKnockoutPool(roundId);
+    const placeholder = pool.length > 0 ? round.placeholder : EMPTY_PLACEHOLDERS[roundId];
+
+    document.querySelectorAll(`[data-round-type="${roundId}"]`).forEach((select) => {
+      setSelectOptions(select, getOptionsForSelect(roundId, select), placeholder);
+    });
+  }
+
+  function updateKnockoutCascade(changedRoundId) {
+    const roundOrder = ["qf", "sf", "final", "champion"];
+    const startIndex = changedRoundId ? roundOrder.indexOf(changedRoundId) : 0;
+
+    for (let i = Math.max(0, startIndex); i < roundOrder.length; i++) {
+      updateRoundSelects(roundOrder[i]);
+    }
   }
 
   function renderGroups() {
@@ -64,13 +152,31 @@
       req.textContent = "*";
       fieldLabel.appendChild(req);
 
-      const select = createSelect(
-        GROUPS[groupKey],
-        "Pick winner…",
-        { key: "group", value: groupKey }
-      );
-      field.append(fieldLabel, select);
+      const select = document.createElement("select");
+      select.dataset.group = groupKey;
+      select.required = true;
 
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = "Pick winner…";
+      empty.disabled = true;
+      empty.selected = true;
+      select.appendChild(empty);
+
+      GROUPS[groupKey].forEach((team) => {
+        const option = document.createElement("option");
+        option.value = team;
+        option.textContent = teamLabel(team);
+        select.appendChild(option);
+      });
+
+      select.addEventListener("change", () => {
+        select.classList.toggle("has-value", select.value !== "");
+        clearValidationUI();
+        updateKnockoutCascade("qf");
+      });
+
+      field.append(fieldLabel, select);
       card.append(label, field);
       groupsGrid.appendChild(card);
     });
@@ -92,13 +198,8 @@
         req.textContent = "*";
         label.appendChild(req);
 
-        const select = createSelect(
-          ALL_TEAMS,
-          "Select team…",
-          { key: "round", value: `${round.id}-${i}` }
-        );
-        select.id = `${round.id}-${i}`;
-        select.dataset.roundType = round.id;
+        const select = createKnockoutSelect(round, i);
+        setSelectOptions(select, [], EMPTY_PLACEHOLDERS[round.id]);
 
         field.append(label, select);
         container.appendChild(field);
@@ -112,12 +213,6 @@
       selections[select.dataset.group] = select.value;
     });
     return selections;
-  }
-
-  function getRoundSelections(roundId) {
-    return Array.from(document.querySelectorAll(`[data-round-type="${roundId}"]`)).map(
-      (select) => select.value
-    );
   }
 
   function clearValidationUI() {
@@ -169,6 +264,15 @@
       }
     }
 
+    const groupWinners = getGroupWinners();
+    if (groupWinners.length < GROUP_KEYS.length) {
+      if (!firstInvalid) {
+        showError("Complete all group winners before filling in the knockout round.");
+        document.getElementById("section-groups").scrollIntoView({ behavior: "smooth", block: "start" });
+        return null;
+      }
+    }
+
     const allKnockoutSelects = document.querySelectorAll("[data-round-type]");
     allKnockoutSelects.forEach((select) => {
       if (!select.value) {
@@ -188,6 +292,12 @@
     const sf = getRoundSelections("sf");
     const final = getRoundSelections("final");
     const champion = getRoundSelections("champion");
+    const groupWinnerSet = new Set(groupWinners);
+
+    if (qf.some((team) => !groupWinnerSet.has(team))) {
+      showError("Quarter-finalists must be chosen from your group winners.");
+      return null;
+    }
 
     if (hasDuplicates(qf)) {
       showError("Quarter-finalists must all be different teams.");
@@ -363,6 +473,5 @@
   renderGroups();
   renderKnockout();
   shareBtn.addEventListener("click", handleShare);
-
   playerNameInput.addEventListener("input", clearValidationUI);
 })();
