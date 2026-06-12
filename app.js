@@ -16,7 +16,6 @@
   const bracketEl       = document.getElementById("bracket");
   const shareBtn        = document.getElementById("share-btn");
   const toast           = document.getElementById("toast");
-  const shareCapture    = document.getElementById("share-capture");
   const rankingsBody    = document.getElementById("rankings-body");
 
   const COOKIE_NAME = "lind_wc2026_picks";
@@ -372,14 +371,12 @@
   }
 
   /* ── Share screenshot (groups + bracket) ──────────────────────── */
-  function cloneSectionForCapture(sectionId) {
-    const section = document.getElementById(sectionId);
-    if (!section) return null;
-    const clone = section.cloneNode(true);
-    clone.removeAttribute("id");
-    clone.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
-    clone.querySelectorAll(".section-hint").forEach((el) => el.remove());
-    return clone;
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
   async function inlineFlagImages(root) {
@@ -403,29 +400,95 @@
     }));
   }
 
-  function buildShareCapture() {
-    const name = (playerNameInput.value.trim() || "?").toUpperCase();
-    const groupsSection = cloneSectionForCapture("section-groups");
-    const bracketSection = cloneSectionForCapture("section-bracket");
+  function buildShareHtmlDocument() {
+    const name = escapeHtml((playerNameInput.value.trim() || "?").toUpperCase());
+    const stylesHref = new URL("styles.css", window.location.href).href;
+    const groupsHtml = groupsGrid.innerHTML;
+    const bracketHtml = bracketEl.innerHTML;
 
-    shareCapture.innerHTML = "";
-
-    const header = document.createElement("div");
-    header.className = "share-capture-header";
-    header.innerHTML = `
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WC 2026 Picks — ${name}</title>
+  <link rel="stylesheet" href="${stylesHref}">
+  <style>
+    body { margin: 0; background: #fff; }
+    .share-capture { width: 1400px; background: #fff; font-family: "Segoe UI", system-ui, sans-serif; color: #1a2530; }
+    .share-capture button { pointer-events: none; cursor: default; }
+  </style>
+</head>
+<body>
+  <div class="share-capture">
+    <div class="share-capture-header">
       <p class="share-capture-brand">LIND EQUIPMENT</p>
       <h2 class="share-capture-title">FIFA World Cup 2026™</h2>
       <p class="share-capture-subtitle">Tournament Bracket Pool</p>
-      <p class="share-capture-name">${name}</p>`;
-    shareCapture.appendChild(header);
+      <p class="share-capture-name">${name}</p>
+    </div>
+    <section class="section share-capture-section">
+      <h2>Group Stage</h2>
+      <div class="groups-grid">${groupsHtml}</div>
+    </section>
+    <section class="section bracket-section share-capture-section share-capture-bracket">
+      <h2>Tournament Bracket</h2>
+      <div class="bracket-scroll">
+        <div class="bracket-wrapper">${bracketHtml}</div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>`;
+  }
 
-    if (groupsSection) {
-      groupsSection.classList.add("share-capture-section");
-      shareCapture.appendChild(groupsSection);
+  async function waitForShareDocument(doc) {
+    const link = doc.querySelector('link[rel="stylesheet"]');
+    if (link && !link.sheet) {
+      await new Promise((resolve) => {
+        link.addEventListener("load", resolve, { once: true });
+        link.addEventListener("error", resolve, { once: true });
+      });
     }
-    if (bracketSection) {
-      bracketSection.classList.add("share-capture-section", "share-capture-bracket");
-      shareCapture.appendChild(bracketSection);
+    if (doc.fonts?.ready) await doc.fonts.ready;
+  }
+
+  async function captureShareDocument() {
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.cssText = "position:fixed;left:-10000px;top:0;border:0;visibility:hidden;";
+    document.body.appendChild(iframe);
+
+    const loaded = new Promise((resolve) => {
+      iframe.addEventListener("load", resolve, { once: true });
+    });
+    iframe.srcdoc = buildShareHtmlDocument();
+    await loaded;
+
+    const doc = iframe.contentDocument;
+    const root = doc.body;
+    iframe.style.width = "1400px";
+    iframe.style.height = `${root.scrollHeight}px`;
+
+    await waitForShareDocument(doc);
+    await inlineFlagImages(root);
+    await new Promise((r) => setTimeout(r, 150));
+    iframe.style.height = `${root.scrollHeight}px`;
+
+    try {
+      return await html2canvas(root, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: "#ffffff",
+        logging: false,
+        width: root.scrollWidth,
+        height: root.scrollHeight,
+        windowWidth: root.scrollWidth,
+        windowHeight: root.scrollHeight,
+      });
+    } finally {
+      iframe.remove();
     }
   }
 
@@ -442,23 +505,8 @@
   async function doShare() {
     if (!validate()) return;
 
-    const wrapper = document.getElementById("share-capture-wrapper");
-    buildShareCapture();
-    wrapper.style.visibility = "visible";
-
-    await inlineFlagImages(shareCapture);
-    await new Promise((r) => setTimeout(r, 150));
-
     try {
-      const canvas = await html2canvas(shareCapture, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: "#ffffff",
-        logging: false,
-      });
-      wrapper.style.visibility = "hidden";
-      shareCapture.innerHTML = "";
+      const canvas = await captureShareDocument();
 
       const link = document.createElement("a");
       link.download = `wc2026-${(playerNameInput.value.trim() || "picks").replace(/\s+/g, "_")}.png`;
@@ -466,8 +514,6 @@
       link.click();
       showToast("Screenshot saved!");
     } catch {
-      wrapper.style.visibility = "hidden";
-      shareCapture.innerHTML = "";
       showToast("Could not capture screenshot. Please try again.", 4200, true);
     }
   }

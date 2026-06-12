@@ -614,16 +614,7 @@ body {
   background: #c53030;
 }
 
-/* ── Share capture (off-screen, for html2canvas) ─────────────────── */
-.share-capture-wrapper {
-  position: fixed;
-  left: 0;
-  top: 0;
-  visibility: hidden;
-  z-index: -1;
-  pointer-events: none;
-}
-
+/* ── Share capture (standalone HTML document for screenshot) ─────── */
 .share-capture {
   width: 1400px;
   background: #fff;
