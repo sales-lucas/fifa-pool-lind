@@ -379,32 +379,43 @@
       .replace(/"/g, "&quot;");
   }
 
-  async function inlineFlagImages(root) {
-    const imgs = [...root.querySelectorAll("img")];
-    await Promise.all(imgs.map(async (img) => {
-      const src = img.getAttribute("src");
-      if (!src || src.startsWith("data:")) return;
-      try {
-        const resp = await fetch(src);
-        if (!resp.ok) return;
-        const blob = await resp.blob();
-        img.src = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-      } catch {
-        /* keep remote src as fallback */
-      }
-    }));
+  function htmlWithEmojiFlags(html) {
+    const doc = new DOMParser().parseFromString(`<div id="share-root">${html}</div>`, "text/html");
+    const root = doc.getElementById("share-root");
+
+    function swapImg(img, team) {
+      const emoji = teamFlagEmoji(team);
+      if (!emoji) return;
+      const span = doc.createElement("span");
+      span.className = img.classList.contains("flag-champ") ? "flag-emoji flag-emoji--champ" : "flag-emoji";
+      span.setAttribute("aria-hidden", "true");
+      span.textContent = emoji;
+      img.replaceWith(span);
+    }
+
+    root.querySelectorAll("[data-team]").forEach((el) => {
+      const team = el.dataset.team?.trim();
+      if (!team) return;
+      el.querySelectorAll("img.flag-svg").forEach((img) => swapImg(img, team));
+    });
+
+    root.querySelectorAll(".champion-box").forEach((box) => {
+      const team = box.querySelector(".champion-name")?.textContent.trim();
+      const img = box.querySelector("img.flag-champ");
+      if (team && img) swapImg(img, team);
+    });
+
+    return root.innerHTML;
   }
 
   function buildShareHtmlDocument() {
     const name = escapeHtml((playerNameInput.value.trim() || "?").toUpperCase());
+    const shareDate = SHARE_SCREENSHOT_DATE
+      ? `<p class="share-capture-date">${escapeHtml(SHARE_SCREENSHOT_DATE)}</p>`
+      : "";
     const stylesHref = new URL("styles.css", window.location.href).href;
-    const groupsHtml = groupsGrid.innerHTML;
-    const bracketHtml = bracketEl.innerHTML;
+    const groupsHtml = htmlWithEmojiFlags(groupsGrid.innerHTML);
+    const bracketHtml = htmlWithEmojiFlags(bracketEl.innerHTML);
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -417,6 +428,25 @@
     body { margin: 0; background: #fff; }
     .share-capture { width: 1400px; background: #fff; font-family: "Segoe UI", system-ui, sans-serif; color: #1a2530; }
     .share-capture button { pointer-events: none; cursor: default; }
+    .share-capture .flag-emoji {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 16px;
+      font-size: 14px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .share-capture .match-team .flag-emoji {
+      width: 20px;
+      font-size: 13px;
+    }
+    .share-capture .flag-emoji--champ {
+      width: 72px;
+      height: 54px;
+      font-size: 48px;
+    }
   </style>
 </head>
 <body>
@@ -426,6 +456,7 @@
       <h2 class="share-capture-title">FIFA World Cup 2026™</h2>
       <p class="share-capture-subtitle">Tournament Bracket Pool</p>
       <p class="share-capture-name">${name}</p>
+      ${shareDate}
     </div>
     <section class="section share-capture-section">
       <h2>Group Stage</h2>
@@ -471,7 +502,6 @@
     iframe.style.height = `${root.scrollHeight}px`;
 
     await waitForShareDocument(doc);
-    await inlineFlagImages(root);
     await new Promise((r) => setTimeout(r, 150));
     iframe.style.height = `${root.scrollHeight}px`;
 

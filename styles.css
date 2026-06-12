@@ -661,6 +661,14 @@ body {
   letter-spacing: 0.04em;
 }
 
+.share-capture-date {
+  margin-top: 0.55rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
 .share-capture-section {
   margin: 0;
   border: none;

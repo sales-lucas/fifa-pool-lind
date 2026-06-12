@@ -68,6 +68,9 @@ const GROUP_KEYS = Object.keys(GROUPS);
 
 const FLAG_CDN = "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/4x3";
 
+/** Date shown on share screenshots only — update before each pool. */
+const SHARE_SCREENSHOT_DATE = "June 12, 2026";
+
 function flagImg(iso, label) {
   if (!iso) return "";
   return `<img class="flag-svg" src="${FLAG_CDN}/${iso}.svg" alt="" width="22" height="16" loading="lazy" aria-hidden="true">`;
@@ -75,6 +78,20 @@ function flagImg(iso, label) {
 
 function teamFlagIso(name) {
   return TEAM_ISO[name] || "";
+}
+
+const FLAG_EMOJI_OVERRIDES = {
+  "gb-eng": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+  "gb-sct": "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
+};
+
+function teamFlagEmoji(name) {
+  const iso = teamFlagIso(name);
+  if (!iso) return "";
+  if (FLAG_EMOJI_OVERRIDES[iso]) return FLAG_EMOJI_OVERRIDES[iso];
+  const cc = iso.slice(0, 2).toUpperCase();
+  if (!/^[A-Z]{2}$/.test(cc)) return "🏳️";
+  return String.fromCodePoint(...[...cc].map((c) => 0x1F1E6 + c.charCodeAt(0) - 65));
 }
 
 function slotGroup(position, group) {
