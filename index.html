@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2026 FIFA World Cup Pool</title>
+  <title>2026 FIFA World Cup Pool — LIND EQUIPMENT</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="header">
-    <p class="subtitle">LIND EQUIPMENT</p>
-    <h1>2026 FIFA World Cup Pool</h1>
-    <p class="subtitle">Make your picks and share them with the team</p>
+    <p class="header-brand">LIND EQUIPMENT</p>
+    <h1>FIFA World Cup 2026™</h1>
+    <p class="subtitle">Tournament Bracket Pool</p>
   </header>
 
   <section class="prizes-banner" aria-label="Prizes">
@@ -37,91 +37,69 @@
   <main class="container">
     <section class="section scoring-section">
       <h2>Scoring</h2>
-      <p class="section-hint">Points awarded for each correct prediction during the tournament.</p>
       <ul class="scoring-list">
-        <li><span class="scoring-round">Group stage correct pick</span><span class="scoring-pts">2 pts</span></li>
-        <li><span class="scoring-round">Round of 32</span><span class="scoring-pts">4 pts</span></li>
-        <li><span class="scoring-round">Round of 16</span><span class="scoring-pts">8 pts</span></li>
-        <li><span class="scoring-round">Quarterfinal</span><span class="scoring-pts">16 pts</span></li>
-        <li><span class="scoring-round">Semifinal</span><span class="scoring-pts">32 pts</span></li>
-        <li><span class="scoring-round">Final winner</span><span class="scoring-pts">64 pts</span></li>
-        <li class="scoring-bonus"><span class="scoring-round">Bonus for champion</span><span class="scoring-pts">+50 pts</span></li>
+        <li><span>Group pick</span><strong>2 pts</strong></li>
+        <li><span>Round of 32</span><strong>4 pts</strong></li>
+        <li><span>Round of 16</span><strong>8 pts</strong></li>
+        <li><span>Quarterfinal</span><strong>16 pts</strong></li>
+        <li><span>Semifinal</span><strong>32 pts</strong></li>
+        <li><span>Final</span><strong>64 pts</strong></li>
+        <li class="scoring-bonus"><span>Champion bonus</span><strong>+50 pts</strong></li>
       </ul>
     </section>
 
     <section class="section" id="section-name">
       <h2>Your Name <span class="required-mark">*</span></h2>
-      <input
-        type="text"
-        id="player-name"
-        class="name-input"
-        placeholder="Enter your name"
-        maxlength="80"
-        autocomplete="name"
-        required
-      >
+      <input type="text" id="player-name" class="name-input" placeholder="Enter your name" maxlength="80" autocomplete="name" required>
     </section>
 
     <section class="section" id="section-groups">
-      <h2>Group Winners <span class="pts-badge">2 pts each</span></h2>
-      <p class="section-hint">Pick the team that wins each group (1st place). All 12 groups are required.</p>
+      <h2>Group Stage</h2>
+      <p class="section-hint">Pick 1st and 2nd place for each group — these fill the Round of 32 bracket.</p>
       <div id="groups-grid" class="groups-grid"></div>
     </section>
 
-    <section class="section" id="section-knockout">
-      <h2>Knockout Round</h2>
-      <p class="section-hint">Knockout picks are based on your group winners — each round only shows teams you selected in the previous round.</p>
-
-      <div class="knockout-block">
-        <h3>Quarter-finalists <span class="count">(8)</span> <span class="pts-badge">16 pts each</span></h3>
-        <div id="qf-grid" class="knockout-grid"></div>
+    <section class="section bracket-section" id="section-bracket">
+      <h2>Tournament Bracket</h2>
+      <p class="section-hint">Click the team you think wins each match. Rounds unlock as you fill in the previous ones. Scroll horizontally to see the full bracket.</p>
+      <div class="bracket-scroll">
+        <div id="bracket" class="bracket-wrapper"></div>
       </div>
+      <div id="champion-display" class="champion-display"></div>
+    </section>
 
-      <div class="knockout-block">
-        <h3>Semi-finalists <span class="count">(4)</span> <span class="pts-badge">32 pts each</span></h3>
-        <div id="sf-grid" class="knockout-grid"></div>
-      </div>
-
-      <div class="knockout-block">
-        <h3>Finalists <span class="count">(2)</span> <span class="pts-badge">64 pts each</span></h3>
-        <div id="final-grid" class="knockout-grid knockout-grid--narrow"></div>
-      </div>
-
-      <div class="knockout-block">
-        <h3>Champion <span class="count">(1)</span> <span class="pts-badge pts-badge--bonus">+50 pts bonus</span></h3>
-        <div id="champion-grid" class="knockout-grid knockout-grid--narrow"></div>
+    <section class="section" id="section-rankings">
+      <h2>World Cup All-Time Rankings</h2>
+      <p class="section-hint">Historical podium finishes through 2022 — for reference only.</p>
+      <div class="rankings-wrap">
+        <table class="rankings-table">
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th>🥇 Wins</th>
+              <th class="years-col">Years won</th>
+              <th>🥈</th>
+              <th class="years-col">Years 2nd</th>
+              <th>🥉</th>
+              <th class="years-col">Years 3rd</th>
+            </tr>
+          </thead>
+          <tbody id="rankings-body"></tbody>
+        </table>
       </div>
     </section>
   </main>
 
   <footer class="footer">
     <p id="error-message" class="error-message" role="alert" hidden></p>
-    <button type="button" id="share-btn" class="share-btn">SHARE</button>
-    <p class="footer-hint">Complete every pick, then generate a screenshot to share</p>
+    <button type="button" id="share-btn" class="share-btn">SHARE MY PICKS</button>
+    <p class="footer-hint">Complete all picks to generate a shareable screenshot</p>
   </footer>
 
   <div id="toast" class="toast" role="status" hidden></div>
 
   <div id="share-card-wrapper" class="share-card-wrapper" aria-hidden="true">
-    <div id="share-card" class="share-card">
-      <div class="share-card-header">
-        <h2>2026 FIFA World Cup Pool</h2>
-        <p class="share-card-name" id="share-card-name"></p>
-        <p class="share-card-date" id="share-card-date"></p>
-      </div>
-      <div class="share-card-body">
-        <div class="share-card-column">
-          <h3>Group Winners</h3>
-          <table class="share-table" id="share-groups-table">
-            <tbody></tbody>
-          </table>
-        </div>
-        <div class="share-card-column">
-          <h3>Knockout Picks</h3>
-          <div id="share-knockout-list" class="share-knockout-list"></div>
-        </div>
-      </div>
-    </div>
+    <div id="share-card" class="share-card"></div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>

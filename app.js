@@ -1,477 +1,390 @@
 (function () {
-  const KNOCKOUT_ROUNDS = [
-    { id: "qf", label: "Quarter-finalist", count: 8, containerId: "qf-grid", placeholder: "Pick from group winners…" },
-    { id: "sf", label: "Semi-finalist", count: 4, containerId: "sf-grid", placeholder: "Pick from quarter-finalists…" },
-    { id: "final", label: "Finalist", count: 2, containerId: "final-grid", placeholder: "Pick from semi-finalists…" },
-    { id: "champion", label: "Champion", count: 1, containerId: "champion-grid", placeholder: "Pick from finalists…" },
-  ];
-
-  const PARENT_ROUND = {
-    sf: "qf",
-    final: "sf",
-    champion: "final",
+  /* ── State ─────────────────────────────────────────────────── */
+  const state = {
+    groupFirst: {},
+    groupSecond: {},
+    winners: {},
+    champion: null,
   };
 
-  const EMPTY_PLACEHOLDERS = {
-    qf: "Complete group winners first…",
-    sf: "Pick quarter-finalists first…",
-    final: "Pick semi-finalists first…",
-    champion: "Pick finalists first…",
-  };
+  const matchMap = Object.fromEntries(BRACKET_MATCHES.map((m) => [m.id, m]));
 
+  /* ── DOM refs ───────────────────────────────────────────────── */
   const playerNameInput = document.getElementById("player-name");
-  const groupsGrid = document.getElementById("groups-grid");
-  const shareBtn = document.getElementById("share-btn");
-  const errorMessage = document.getElementById("error-message");
-  const toast = document.getElementById("toast");
-  const shareCard = document.getElementById("share-card");
-  const shareCardName = document.getElementById("share-card-name");
-  const shareCardDate = document.getElementById("share-card-date");
-  const shareGroupsTable = document.querySelector("#share-groups-table tbody");
-  const shareKnockoutList = document.getElementById("share-knockout-list");
+  const groupsGrid      = document.getElementById("groups-grid");
+  const bracketEl       = document.getElementById("bracket");
+  const championDisplay = document.getElementById("champion-display");
+  const shareBtn        = document.getElementById("share-btn");
+  const errorMessage    = document.getElementById("error-message");
+  const toast           = document.getElementById("toast");
+  const shareCard       = document.getElementById("share-card");
+  const rankingsBody    = document.getElementById("rankings-body");
 
-  function createKnockoutSelect(round, index) {
-    const select = document.createElement("select");
-    select.dataset.round = `${round.id}-${index}`;
-    select.dataset.roundType = round.id;
-    select.id = `${round.id}-${index}`;
-    select.required = true;
-    select.disabled = true;
-
-    select.addEventListener("change", () => {
-      select.classList.toggle("has-value", select.value !== "");
-      clearValidationUI();
-      updateKnockoutCascade(round.id);
-    });
-
-    return select;
+  /* ── Slot resolution ────────────────────────────────────────── */
+  function resolveSlot(slot) {
+    if (!slot) return null;
+    if (slot.type === "group") {
+      const picks = slot.position === 1 ? state.groupFirst : state.groupSecond;
+      return picks[slot.group] || null;
+    }
+    if (slot.type === "winner") return state.winners[slot.matchId] || null;
+    return null;
   }
 
-  function setSelectOptions(select, teams, placeholder) {
-    const current = select.value;
-    const keepCurrent = current && teams.includes(current);
+  function getMatchTeams(matchId) {
+    const m = matchMap[matchId];
+    if (!m) return { home: null, away: null };
+    return { home: resolveSlot(m.home), away: resolveSlot(m.away) };
+  }
 
-    select.innerHTML = "";
+  /* ── Cascade-clear downstream picks ────────────────────────── */
+  function clearDownstream(fromMatchId) {
+    const m = matchMap[fromMatchId];
+    if (!m?.advance) return;
+    if (m.advance.match === "champion") { state.champion = null; return; }
 
-    const empty = document.createElement("option");
-    empty.value = "";
-    empty.textContent = placeholder;
-    empty.disabled = true;
-    empty.selected = !keepCurrent;
-    select.appendChild(empty);
+    const queue = [m.advance.match];
+    while (queue.length) {
+      const id = queue.shift();
+      delete state.winners[id];
+      const next = matchMap[id];
+      if (next?.advance) {
+        if (next.advance.match === "champion") state.champion = null;
+        else queue.push(next.advance.match);
+      }
+    }
+  }
 
-    teams.forEach((team) => {
-      const option = document.createElement("option");
-      option.value = team;
-      option.textContent = teamLabel(team);
-      if (team === current) option.selected = true;
-      select.appendChild(option);
+  function invalidateBracket() {
+    state.winners  = {};
+    state.champion = null;
+  }
+
+  /* ── Winner selection ───────────────────────────────────────── */
+  function setWinner(matchId, team) {
+    const { home, away } = getMatchTeams(matchId);
+    if (!home || !away || (team !== home && team !== away)) return;
+
+    const prev = state.winners[matchId];
+    if (prev && prev !== team) clearDownstream(matchId);
+
+    state.winners[matchId] = team;
+
+    const m = matchMap[matchId];
+    if (m.advance?.match === "champion") state.champion = team;
+
+    renderBracket();
+    renderChampion();
+  }
+
+  /* ── Match-card HTML ────────────────────────────────────────── */
+  function teamBtnHtml(team, slotDef, matchId, winner, ready) {
+    const ph  = slotLabel(slotDef);
+    const iso = team ? teamFlagIso(team) : "";
+
+    const cls = ["match-team",
+      !team       ? "is-tbd"    : "",
+      winner && winner === team         ? "is-winner" : "",
+      winner && winner !== team && team ? "is-loser"  : "",
+    ].filter(Boolean).join(" ");
+
+    const flagHtml = iso
+      ? `<img class="flag-svg" src="${FLAG_CDN}/${iso}.svg" alt="" width="20" height="15" loading="lazy">`
+      : `<span class="flag-empty"></span>`;
+
+    return `<button type="button" class="${cls}"
+      data-match="${matchId}" data-team="${team || ""}"
+      ${!ready || !team ? "disabled" : ""}
+    >${flagHtml}<span class="team-name">${team || ph}</span></button>`;
+  }
+
+  function matchCardHtml(matchId) {
+    const m = matchMap[matchId];
+    const { home, away } = getMatchTeams(matchId);
+    const winner = state.winners[matchId];
+    const ready  = Boolean(home && away);
+    const extra  = m.round === "final" ? " match-card--final" : "";
+
+    return `<div class="match-card${extra}" data-match="${matchId}">
+      ${teamBtnHtml(home, m.home, matchId, winner, ready)}
+      ${teamBtnHtml(away, m.away, matchId, winner, ready)}
+    </div>`;
+  }
+
+  /* ── Bracket HTML ───────────────────────────────────────────── */
+  function slotHtml(matchId) {
+    return `<div class="bracket-slot">${matchCardHtml(matchId)}</div>`;
+  }
+
+  function pairHtml(pair) {
+    if (pair.length === 1) return slotHtml(pair[0]);
+    return `<div class="bracket-pair">${pair.map(slotHtml).join("")}</div>`;
+  }
+
+  function colHtml(roundData) {
+    const { round, pairs } = roundData;
+    return `<div class="bracket-col ${round}-col">
+      <div class="col-title">${ROUND_LABELS[round] || round}</div>
+      <div class="col-matches">${pairs.map(pairHtml).join("")}</div>
+    </div>`;
+  }
+
+  function renderBracket() {
+    const leftHtml  = LEFT_BRACKET_ROUNDS.map(colHtml).join("");
+    const rightHtml = RIGHT_BRACKET_ROUNDS.map(colHtml).join("");
+
+    bracketEl.innerHTML = `
+      <div class="bracket-half bracket-left">${leftHtml}</div>
+      <div class="bracket-center">
+        <div class="col-title">Final</div>
+        <div class="col-matches final-matches">${matchCardHtml("final")}</div>
+      </div>
+      <div class="bracket-half bracket-right">${rightHtml}</div>`;
+
+    bracketEl.querySelectorAll(".match-team:not([disabled])").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const { match: matchId, team } = btn.dataset;
+        if (team) { setWinner(matchId, team); clearValidationUI(); }
+      });
     });
+  }
 
-    if (keepCurrent) {
-      select.value = current;
-      select.classList.add("has-value");
+  /* ── Champion display ───────────────────────────────────────── */
+  function renderChampion() {
+    if (!championDisplay) return;
+    if (state.champion) {
+      const iso = teamFlagIso(state.champion);
+      const flag = iso
+        ? `<img class="flag-svg flag-champ" src="${FLAG_CDN}/${iso}.svg" alt="" width="36" height="27" loading="lazy">`
+        : "";
+      championDisplay.innerHTML = `
+        <div class="champion-box champion-box--active">
+          <span class="champion-label">🏆 2026 World Champion</span>
+          <div class="champion-name">${flag}${state.champion}</div>
+        </div>`;
     } else {
-      select.value = "";
-      select.classList.remove("has-value");
+      championDisplay.innerHTML = `
+        <div class="champion-box">
+          <span class="champion-label">🏆 2026 World Champion</span>
+          <div class="champion-placeholder">Complete the bracket to reveal your pick</div>
+        </div>`;
     }
-
-    select.disabled = teams.length === 0;
   }
 
-  function getGroupWinners() {
-    return GROUP_KEYS.map((key) => {
-      const select = document.querySelector(`select[data-group="${key}"]`);
-      return select ? select.value : "";
-    }).filter(Boolean);
-  }
+  /* ── Group-stage rendering ──────────────────────────────────── */
+  function createGroupSelect(groupKey, position, value) {
+    const sel = document.createElement("select");
+    sel.dataset.group    = groupKey;
+    sel.dataset.position = position;
+    sel.className = "group-select";
+    sel.required  = true;
 
-  function getRoundSelections(roundId) {
-    return Array.from(document.querySelectorAll(`[data-round-type="${roundId}"]`)).map(
-      (select) => select.value
-    );
-  }
+    const defaultOpt = document.createElement("option");
+    defaultOpt.value = "";
+    defaultOpt.textContent = position === 1 ? "1st place…" : "2nd place…";
+    defaultOpt.disabled = true;
+    defaultOpt.selected = !value;
+    sel.appendChild(defaultOpt);
 
-  function getKnockoutPool(roundId) {
-    if (roundId === "qf") {
-      return [...new Set(getGroupWinners())].sort((a, b) => a.localeCompare(b));
-    }
-
-    const parentRound = PARENT_ROUND[roundId];
-    const parentSelections = getRoundSelections(parentRound).filter(Boolean);
-    return [...new Set(parentSelections)].sort((a, b) => a.localeCompare(b));
-  }
-
-  function getOptionsForSelect(roundId, select) {
-    const pool = getKnockoutPool(roundId);
-    const taken = Array.from(document.querySelectorAll(`[data-round-type="${roundId}"]`))
-      .filter((el) => el !== select && el.value)
-      .map((el) => el.value);
-
-    return pool.filter((team) => !taken.includes(team));
-  }
-
-  function updateRoundSelects(roundId, startFromRoundId) {
-    const round = KNOCKOUT_ROUNDS.find((r) => r.id === roundId);
-    if (!round) return;
-
-    const pool = getKnockoutPool(roundId);
-    const placeholder = pool.length > 0 ? round.placeholder : EMPTY_PLACEHOLDERS[roundId];
-
-    document.querySelectorAll(`[data-round-type="${roundId}"]`).forEach((select) => {
-      setSelectOptions(select, getOptionsForSelect(roundId, select), placeholder);
+    GROUPS[groupKey].forEach((team) => {
+      const opt = document.createElement("option");
+      const iso = teamFlagIso(team);
+      opt.value = team;
+      opt.textContent = team;
+      if (team === value) opt.selected = true;
+      sel.appendChild(opt);
     });
-  }
 
-  function updateKnockoutCascade(changedRoundId) {
-    const roundOrder = ["qf", "sf", "final", "champion"];
-    const startIndex = changedRoundId ? roundOrder.indexOf(changedRoundId) : 0;
+    sel.addEventListener("change", () => {
+      const chosen = sel.value;
+      if (position === 1) state.groupFirst[groupKey]  = chosen;
+      else                state.groupSecond[groupKey] = chosen;
+      invalidateBracket();
+      renderBracket();
+      renderChampion();
+      clearValidationUI();
+    });
 
-    for (let i = Math.max(0, startIndex); i < roundOrder.length; i++) {
-      updateRoundSelects(roundOrder[i]);
-    }
+    return sel;
   }
 
   function renderGroups() {
-    GROUP_KEYS.forEach((groupKey) => {
+    groupsGrid.innerHTML = "";
+    GROUP_KEYS.forEach((key) => {
       const card = document.createElement("div");
       card.className = "group-card";
-      card.dataset.group = groupKey;
 
-      const label = document.createElement("div");
-      label.className = "group-label";
-      label.textContent = `Group ${groupKey}`;
+      const title = document.createElement("h3");
+      title.className = "group-title";
+      title.textContent = `Group ${key}`;
 
-      const field = document.createElement("div");
-      field.className = "pick-field";
+      const sel1 = createGroupSelect(key, 1, state.groupFirst[key] || "");
+      const sel2 = createGroupSelect(key, 2, state.groupSecond[key] || "");
 
-      const fieldLabel = document.createElement("label");
-      fieldLabel.textContent = "Winner ";
-      const req = document.createElement("span");
-      req.className = "required-mark";
-      req.textContent = "*";
-      fieldLabel.appendChild(req);
-
-      const select = document.createElement("select");
-      select.dataset.group = groupKey;
-      select.required = true;
-
-      const empty = document.createElement("option");
-      empty.value = "";
-      empty.textContent = "Pick winner…";
-      empty.disabled = true;
-      empty.selected = true;
-      select.appendChild(empty);
-
-      GROUPS[groupKey].forEach((team) => {
-        const option = document.createElement("option");
-        option.value = team;
-        option.textContent = teamLabel(team);
-        select.appendChild(option);
-      });
-
-      select.addEventListener("change", () => {
-        select.classList.toggle("has-value", select.value !== "");
-        clearValidationUI();
-        updateKnockoutCascade("qf");
-      });
-
-      field.append(fieldLabel, select);
-      card.append(label, field);
+      card.append(title, sel1, sel2);
       groupsGrid.appendChild(card);
     });
   }
 
-  function renderKnockout() {
-    KNOCKOUT_ROUNDS.forEach((round) => {
-      const container = document.getElementById(round.containerId);
-
-      for (let i = 1; i <= round.count; i++) {
-        const field = document.createElement("div");
-        field.className = "pick-field";
-
-        const label = document.createElement("label");
-        label.setAttribute("for", `${round.id}-${i}`);
-        label.append(`${round.label} ${i} `);
-        const req = document.createElement("span");
-        req.className = "required-mark";
-        req.textContent = "*";
-        label.appendChild(req);
-
-        const select = createKnockoutSelect(round, i);
-        setSelectOptions(select, [], EMPTY_PLACEHOLDERS[round.id]);
-
-        field.append(label, select);
-        container.appendChild(field);
-      }
-    });
+  /* ── Rankings ───────────────────────────────────────────────── */
+  function renderRankings() {
+    if (!rankingsBody) return;
+    rankingsBody.innerHTML = WC_RANKINGS.map((r) => {
+      const flag = r.iso
+        ? `<img class="flag-svg" src="${FLAG_CDN}/${r.iso}.svg" alt="" width="22" height="16" loading="lazy">`
+        : "";
+      return `<tr>
+        <td class="team-col">${flag}<span>${r.country}</span></td>
+        <td class="center">${r.wins || "—"}</td>
+        <td class="years-col">${r.winYears}</td>
+        <td class="center">${r.seconds || "—"}</td>
+        <td class="years-col">${r.secondYears}</td>
+        <td class="center">${r.thirds || "—"}</td>
+        <td class="years-col">${r.thirdYears}</td>
+      </tr>`;
+    }).join("");
   }
 
-  function getGroupSelections() {
-    const selections = {};
-    document.querySelectorAll("select[data-group]").forEach((select) => {
-      selections[select.dataset.group] = select.value;
-    });
-    return selections;
-  }
-
+  /* ── Validation ─────────────────────────────────────────────── */
   function clearValidationUI() {
     errorMessage.hidden = true;
     errorMessage.textContent = "";
-    playerNameInput.classList.remove("invalid");
-    document.querySelectorAll(".group-card.invalid, select.invalid").forEach((el) => {
-      el.classList.remove("invalid");
-    });
   }
 
-  function markInvalid(element) {
-    if (!element) return;
-    if (element.tagName === "SELECT") {
-      element.classList.add("invalid");
-      const card = element.closest(".group-card");
-      if (card) card.classList.add("invalid");
-    } else {
-      element.classList.add("invalid");
-    }
+  function showError(msg) {
+    errorMessage.textContent = msg;
+    errorMessage.hidden = false;
+    errorMessage.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
-  function hasDuplicates(values) {
-    const filled = values.filter(Boolean);
-    return new Set(filled).size !== filled.length;
+  function groupsComplete() {
+    return GROUP_KEYS.every((k) => state.groupFirst[k] && state.groupSecond[k]);
   }
 
   function validate() {
     clearValidationUI();
-    let firstInvalid = null;
-    let missingCount = 0;
 
-    const name = playerNameInput.value.trim();
-    if (!name) {
-      markInvalid(playerNameInput);
-      firstInvalid = playerNameInput;
-      showError("Please enter your name.");
-      firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
-      return null;
+    if (!playerNameInput.value.trim()) {
+      showError("Please enter your name before sharing.");
+      playerNameInput.focus();
+      return false;
     }
 
-    const groupSelections = getGroupSelections();
-    for (const groupKey of GROUP_KEYS) {
-      const select = document.querySelector(`select[data-group="${groupKey}"]`);
-      if (!groupSelections[groupKey]) {
-        markInvalid(select);
-        missingCount += 1;
-        if (!firstInvalid) firstInvalid = select;
+    if (!groupsComplete()) {
+      showError("Please pick 1st and 2nd place for every group.");
+      document.getElementById("section-groups").scrollIntoView({ behavior: "smooth" });
+      return false;
+    }
+
+    for (const key of GROUP_KEYS) {
+      if (state.groupFirst[key] === state.groupSecond[key]) {
+        showError(`Group ${key}: 1st and 2nd place must be different teams.`);
+        return false;
       }
     }
 
-    const groupWinners = getGroupWinners();
-    if (groupWinners.length < GROUP_KEYS.length) {
-      if (!firstInvalid) {
-        showError("Complete all group winners before filling in the knockout round.");
-        document.getElementById("section-groups").scrollIntoView({ behavior: "smooth", block: "start" });
-        return null;
-      }
+    const allMatches = BRACKET_MATCHES.map((m) => m.id);
+    const missing = allMatches.find((id) => !state.winners[id]);
+    if (missing) {
+      showError("Please complete every bracket match before sharing.");
+      document.getElementById("section-bracket").scrollIntoView({ behavior: "smooth" });
+      return false;
     }
 
-    const allKnockoutSelects = document.querySelectorAll("[data-round-type]");
-    allKnockoutSelects.forEach((select) => {
-      if (!select.value) {
-        markInvalid(select);
-        missingCount += 1;
-        if (!firstInvalid) firstInvalid = select;
-      }
-    });
-
-    if (firstInvalid) {
-      showError(`Please select all picks — ${missingCount} remaining.`);
-      firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
-      return null;
-    }
-
-    const qf = getRoundSelections("qf");
-    const sf = getRoundSelections("sf");
-    const final = getRoundSelections("final");
-    const champion = getRoundSelections("champion");
-    const groupWinnerSet = new Set(groupWinners);
-
-    if (qf.some((team) => !groupWinnerSet.has(team))) {
-      showError("Quarter-finalists must be chosen from your group winners.");
-      return null;
-    }
-
-    if (hasDuplicates(qf)) {
-      showError("Quarter-finalists must all be different teams.");
-      return null;
-    }
-
-    if (hasDuplicates(sf)) {
-      showError("Semi-finalists must all be different teams.");
-      return null;
-    }
-
-    if (hasDuplicates(final)) {
-      showError("Finalists must be two different teams.");
-      return null;
-    }
-
-    const qfSet = new Set(qf);
-    const invalidSf = sf.find((team) => !qfSet.has(team));
-    if (invalidSf) {
-      showError("Each semi-finalist must be one of your quarter-finalists.");
-      return null;
-    }
-
-    const sfSet = new Set(sf);
-    const invalidFinal = final.find((team) => !sfSet.has(team));
-    if (invalidFinal) {
-      showError("Each finalist must be one of your semi-finalists.");
-      return null;
-    }
-
-    const finalSet = new Set(final);
-    if (!finalSet.has(champion[0])) {
-      showError("Champion must be one of your two finalists.");
-      return null;
-    }
-
-    return {
-      name,
-      groups: groupSelections,
-      qf,
-      sf,
-      final,
-      champion: champion[0],
-    };
+    return true;
   }
 
-  function showError(message) {
-    errorMessage.textContent = message;
-    errorMessage.hidden = false;
+  /* ── Share card + screenshot ────────────────────────────────── */
+  function buildShareCard() {
+    const name = (playerNameInput.value.trim() || "?").toUpperCase();
+
+    const groupRows = GROUP_KEYS.map((k) => {
+      const t1 = state.groupFirst[k]  || "?";
+      const t2 = state.groupSecond[k] || "?";
+      const iso1 = teamFlagIso(t1), iso2 = teamFlagIso(t2);
+      const f1 = iso1 ? `<img class="flag-svg" src="${FLAG_CDN}/${iso1}.svg" alt="" width="18" height="13">` : "";
+      const f2 = iso2 ? `<img class="flag-svg" src="${FLAG_CDN}/${iso2}.svg" alt="" width="18" height="13">` : "";
+      return `<div class="sc-group-row">
+        <span class="sc-group-label">Grp ${k}</span>
+        <span class="sc-team">${f1}${t1}</span>
+        <span class="sc-sep">/</span>
+        <span class="sc-team">${f2}${t2}</span>
+      </div>`;
+    }).join("");
+
+    const roundOrder = ["r32","r16","qf","sf","final"];
+    const roundNames = { r32:"R32", r16:"R16", qf:"QF", sf:"SF", final:"Final" };
+
+    const knockoutRows = roundOrder.map((round) => {
+      const matches = BRACKET_MATCHES.filter((m) => m.round === round);
+      return matches.map((m) => {
+        const w = state.winners[m.id] || "?";
+        const iso = teamFlagIso(w);
+        const f = iso ? `<img class="flag-svg" src="${FLAG_CDN}/${iso}.svg" alt="" width="18" height="13">` : "";
+        return `<div class="sc-ko-row">
+          <span class="sc-ko-label">${roundNames[round]}</span>
+          <span class="sc-team">${f}${w}</span>
+        </div>`;
+      }).join("");
+    }).join("");
+
+    const champIso = teamFlagIso(state.champion || "?");
+    const champFlag = champIso
+      ? `<img class="flag-svg" src="${FLAG_CDN}/${champIso}.svg" alt="" width="22" height="16">`
+      : "";
+
+    shareCard.innerHTML = `
+      <div class="sc-header">
+        <span class="sc-brand">LIND EQUIPMENT</span>
+        <span class="sc-title">FIFA World Cup 2026™</span>
+        <span class="sc-subtitle">Tournament Bracket Pool</span>
+      </div>
+      <div class="sc-name">${name}</div>
+      <div class="sc-body">
+        <div class="sc-col">
+          <div class="sc-col-title">Group Stage</div>
+          ${groupRows}
+        </div>
+        <div class="sc-col">
+          <div class="sc-col-title">Knockout Picks</div>
+          ${knockoutRows}
+        </div>
+      </div>
+      <div class="sc-champion">🏆 Champion: ${champFlag}<strong>${state.champion || "?"}</strong></div>`;
   }
 
-  function showToast(message) {
-    toast.textContent = message;
+  function showToast(msg, duration = 3200) {
+    toast.textContent = msg;
     toast.hidden = false;
-    setTimeout(() => {
-      toast.hidden = true;
-    }, 3500);
+    setTimeout(() => { toast.hidden = true; }, duration);
   }
 
-  function sanitizeFilename(name) {
-    return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "player";
-  }
+  function doShare() {
+    if (!validate()) return;
+    buildShareCard();
 
-  function buildShareCard(data) {
-    shareCardName.textContent = data.name;
-    shareCardDate.textContent = new Date().toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    const wrapper = document.getElementById("share-card-wrapper");
+    wrapper.style.display = "block";
 
-    shareGroupsTable.innerHTML = "";
-    GROUP_KEYS.forEach((key) => {
-      const row = document.createElement("tr");
-      const teamCell = document.createElement("td");
-      teamCell.textContent = teamLabel(data.groups[key]);
-      row.innerHTML = `<td>${key}</td>`;
-      row.appendChild(teamCell);
-      shareGroupsTable.appendChild(row);
-    });
-
-    shareKnockoutList.innerHTML = "";
-
-    const sections = [
-      { title: "Quarter-finalists", items: data.qf },
-      { title: "Semi-finalists", items: data.sf },
-      { title: "Finalists", items: data.final },
-      { title: "Champion", items: [data.champion], isChampion: true },
-    ];
-
-    sections.forEach(({ title, items, isChampion }) => {
-      const block = document.createElement("div");
-      block.className = "share-knockout-section" + (isChampion ? " champion" : "");
-
-      const heading = document.createElement("h4");
-      heading.textContent = title;
-
-      const list = document.createElement("ul");
-      items.forEach((team) => {
-        const li = document.createElement("li");
-        li.textContent = teamLabel(team);
-        list.appendChild(li);
+    html2canvas(shareCard, { scale: 2, useCORS: true, backgroundColor: "#fff" })
+      .then((canvas) => {
+        wrapper.style.display = "none";
+        const link = document.createElement("a");
+        link.download = `wc2026-${(playerNameInput.value.trim() || "picks").replace(/\s+/g, "_")}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        showToast("Screenshot saved!");
+      })
+      .catch(() => {
+        wrapper.style.display = "none";
+        showToast("Could not capture screenshot. Please try again.");
       });
-
-      block.append(heading, list);
-      shareKnockoutList.appendChild(block);
-    });
   }
 
-  async function downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function shareScreenshot(blob, filename, data) {
-    if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: "image/png" })] })) {
-      try {
-        const file = new File([blob], filename, { type: "image/png" });
-        await navigator.share({
-          title: `2026 FIFA World Cup Pool — ${data.name}`,
-          text: "My World Cup picks",
-          files: [file],
-        });
-        return true;
-      } catch (err) {
-        if (err.name !== "AbortError") {
-          console.warn("Native share failed, falling back to download.", err);
-        }
-      }
-    }
-    return false;
-  }
-
-  async function handleShare() {
-    const data = validate();
-    if (!data) return;
-
-    shareBtn.disabled = true;
-
-    try {
-      buildShareCard(data);
-
-      const canvas = await html2canvas(shareCard, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        logging: false,
-        useCORS: true,
-      });
-
-      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-      const filename = `fifa-pool-${sanitizeFilename(data.name)}.png`;
-
-      const shared = await shareScreenshot(blob, filename, data);
-      if (!shared) {
-        await downloadBlob(blob, filename);
-      }
-
-      showToast(shared
-        ? "Screenshot shared — send it to the team!"
-        : "Screenshot saved — share it with the team!");
-    } catch (err) {
-      console.error(err);
-      showError("Could not generate screenshot. Please try again.");
-    } finally {
-      shareBtn.disabled = false;
-    }
-  }
-
+  /* ── Init ───────────────────────────────────────────────────── */
+  shareBtn.addEventListener("click", doShare);
   renderGroups();
-  renderKnockout();
-  shareBtn.addEventListener("click", handleShare);
-  playerNameInput.addEventListener("input", clearValidationUI);
+  renderBracket();
+  renderChampion();
+  renderRankings();
 })();
