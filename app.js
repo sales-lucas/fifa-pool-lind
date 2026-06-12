@@ -21,7 +21,7 @@
 
   const COOKIE_NAME = "lind_wc2026_picks";
   const COOKIE_DAYS = 90;
-  const BRACKET_VERSION = 2;
+  const BRACKET_VERSION = 3;
 
   /* ── Cookie persistence ───────────────────────────────────────── */
   function saveState() {
