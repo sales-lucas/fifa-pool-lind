@@ -85,42 +85,48 @@ function slotWinner(matchId) {
   return { type: "winner", matchId };
 }
 
-const BRACKET_MATCHES = [
-  { id: "r32-1", round: "r32", label: "1st A vs 2nd B", home: slotGroup(1, "A"), away: slotGroup(2, "B"), advance: { match: "r16-1", slot: "home" } },
-  { id: "r32-2", round: "r32", label: "1st C vs 2nd D", home: slotGroup(1, "C"), away: slotGroup(2, "D"), advance: { match: "r16-1", slot: "away" } },
-  { id: "r32-3", round: "r32", label: "1st E vs 2nd F", home: slotGroup(1, "E"), away: slotGroup(2, "F"), advance: { match: "r16-2", slot: "home" } },
-  { id: "r32-4", round: "r32", label: "1st G vs 2nd H", home: slotGroup(1, "G"), away: slotGroup(2, "H"), advance: { match: "r16-2", slot: "away" } },
-  { id: "r32-5", round: "r32", label: "1st I vs 2nd J", home: slotGroup(1, "I"), away: slotGroup(2, "J"), advance: { match: "r16-3", slot: "home" } },
-  { id: "r32-6", round: "r32", label: "1st K vs 2nd L", home: slotGroup(1, "K"), away: slotGroup(2, "L"), advance: { match: "r16-3", slot: "away" } },
-  { id: "r32-7", round: "r32", label: "1st B vs 2nd A", home: slotGroup(1, "B"), away: slotGroup(2, "A"), advance: { match: "r16-4", slot: "home" } },
-  { id: "r32-8", round: "r32", label: "1st D vs 2nd C", home: slotGroup(1, "D"), away: slotGroup(2, "C"), advance: { match: "r16-4", slot: "away" } },
-  { id: "r32-9", round: "r32", label: "1st F vs 2nd E", home: slotGroup(1, "F"), away: slotGroup(2, "E"), advance: { match: "r16-5", slot: "home" } },
-  { id: "r32-10", round: "r32", label: "1st H vs 2nd G", home: slotGroup(1, "H"), away: slotGroup(2, "G"), advance: { match: "r16-5", slot: "away" } },
-  { id: "r32-11", round: "r32", label: "1st J vs 2nd I", home: slotGroup(1, "J"), away: slotGroup(2, "I"), advance: { match: "r16-6", slot: "home" } },
-  { id: "r32-12", round: "r32", label: "1st L vs 2nd K", home: slotGroup(1, "L"), away: slotGroup(2, "K"), advance: { match: "r16-6", slot: "away" } },
-  { id: "r32-13", round: "r32", label: "1st A vs 2nd C", home: slotGroup(1, "A"), away: slotGroup(2, "C"), advance: { match: "r16-7", slot: "home" } },
-  { id: "r32-14", round: "r32", label: "1st B vs 2nd D", home: slotGroup(1, "B"), away: slotGroup(2, "D"), advance: { match: "r16-7", slot: "away" } },
-  { id: "r32-15", round: "r32", label: "1st E vs 2nd G", home: slotGroup(1, "E"), away: slotGroup(2, "G"), advance: { match: "r16-8", slot: "home" } },
-  { id: "r32-16", round: "r32", label: "1st H vs 2nd F", home: slotGroup(1, "H"), away: slotGroup(2, "F"), advance: { match: "r16-8", slot: "away" } },
+function slotThird(winnerGroup, eligibleGroups) {
+  return { type: "third", winnerGroup, eligibleGroups };
+}
 
-  { id: "r16-1", round: "r16", home: slotWinner("r32-1"), away: slotWinner("r32-2"), advance: { match: "qf-1", slot: "home" } },
-  { id: "r16-2", round: "r16", home: slotWinner("r32-3"), away: slotWinner("r32-4"), advance: { match: "qf-1", slot: "away" } },
-  { id: "r16-3", round: "r16", home: slotWinner("r32-5"), away: slotWinner("r32-6"), advance: { match: "qf-2", slot: "home" } },
-  { id: "r16-4", round: "r16", home: slotWinner("r32-7"), away: slotWinner("r32-8"), advance: { match: "qf-2", slot: "away" } },
-  { id: "r16-5", round: "r16", home: slotWinner("r32-9"), away: slotWinner("r32-10"), advance: { match: "qf-3", slot: "home" } },
-  { id: "r16-6", round: "r16", home: slotWinner("r32-11"), away: slotWinner("r32-12"), advance: { match: "qf-3", slot: "away" } },
-  { id: "r16-7", round: "r16", home: slotWinner("r32-13"), away: slotWinner("r32-14"), advance: { match: "qf-4", slot: "home" } },
-  { id: "r16-8", round: "r16", home: slotWinner("r32-15"), away: slotWinner("r32-16"), advance: { match: "qf-4", slot: "away" } },
+/* Official FIFA World Cup 2026 knockout bracket (matches 73–104).
+   R32 third-place slots use eligible-group pools; resolved after group picks. */
+const BRACKET_MATCHES = [
+  { id: "r32-1",  round: "r32", label: "2nd A vs 2nd B", home: slotGroup(2, "A"), away: slotGroup(2, "B"), advance: { match: "r16-2", slot: "home" } },
+  { id: "r32-2",  round: "r32", label: "1st E vs 3rd", home: slotGroup(1, "E"), away: slotThird("E", ["A", "B", "C", "D", "F"]), advance: { match: "r16-1", slot: "home" } },
+  { id: "r32-3",  round: "r32", label: "1st F vs 2nd C", home: slotGroup(1, "F"), away: slotGroup(2, "C"), advance: { match: "r16-2", slot: "away" } },
+  { id: "r32-4",  round: "r32", label: "1st C vs 2nd F", home: slotGroup(1, "C"), away: slotGroup(2, "F"), advance: { match: "r16-3", slot: "home" } },
+  { id: "r32-5",  round: "r32", label: "1st I vs 3rd", home: slotGroup(1, "I"), away: slotThird("I", ["C", "D", "F", "G", "H"]), advance: { match: "r16-1", slot: "away" } },
+  { id: "r32-6",  round: "r32", label: "2nd E vs 2nd I", home: slotGroup(2, "E"), away: slotGroup(2, "I"), advance: { match: "r16-3", slot: "away" } },
+  { id: "r32-7",  round: "r32", label: "1st A vs 3rd", home: slotGroup(1, "A"), away: slotThird("A", ["C", "E", "F", "H", "I"]), advance: { match: "r16-4", slot: "home" } },
+  { id: "r32-8",  round: "r32", label: "1st L vs 3rd", home: slotGroup(1, "L"), away: slotThird("L", ["E", "H", "I", "J", "K"]), advance: { match: "r16-4", slot: "away" } },
+  { id: "r32-9",  round: "r32", label: "1st D vs 3rd", home: slotGroup(1, "D"), away: slotThird("D", ["B", "E", "F", "I", "J"]), advance: { match: "r16-6", slot: "home" } },
+  { id: "r32-10", round: "r32", label: "1st G vs 3rd", home: slotGroup(1, "G"), away: slotThird("G", ["A", "E", "H", "I", "J"]), advance: { match: "r16-6", slot: "away" } },
+  { id: "r32-11", round: "r32", label: "2nd K vs 2nd L", home: slotGroup(2, "K"), away: slotGroup(2, "L"), advance: { match: "r16-5", slot: "home" } },
+  { id: "r32-12", round: "r32", label: "1st H vs 2nd J", home: slotGroup(1, "H"), away: slotGroup(2, "J"), advance: { match: "r16-5", slot: "away" } },
+  { id: "r32-13", round: "r32", label: "1st B vs 3rd", home: slotGroup(1, "B"), away: slotThird("B", ["E", "F", "G", "I", "J"]), advance: { match: "r16-8", slot: "home" } },
+  { id: "r32-14", round: "r32", label: "1st J vs 2nd H", home: slotGroup(1, "J"), away: slotGroup(2, "H"), advance: { match: "r16-7", slot: "home" } },
+  { id: "r32-15", round: "r32", label: "1st K vs 3rd", home: slotGroup(1, "K"), away: slotThird("K", ["D", "E", "I", "J", "L"]), advance: { match: "r16-8", slot: "away" } },
+  { id: "r32-16", round: "r32", label: "2nd D vs 2nd G", home: slotGroup(2, "D"), away: slotGroup(2, "G"), advance: { match: "r16-7", slot: "away" } },
+
+  { id: "r16-1", round: "r16", home: slotWinner("r32-2"), away: slotWinner("r32-5"), advance: { match: "qf-1", slot: "home" } },
+  { id: "r16-2", round: "r16", home: slotWinner("r32-1"), away: slotWinner("r32-3"), advance: { match: "qf-1", slot: "away" } },
+  { id: "r16-3", round: "r16", home: slotWinner("r32-4"), away: slotWinner("r32-6"), advance: { match: "qf-3", slot: "home" } },
+  { id: "r16-4", round: "r16", home: slotWinner("r32-7"), away: slotWinner("r32-8"), advance: { match: "qf-3", slot: "away" } },
+  { id: "r16-5", round: "r16", home: slotWinner("r32-11"), away: slotWinner("r32-12"), advance: { match: "qf-2", slot: "home" } },
+  { id: "r16-6", round: "r16", home: slotWinner("r32-9"), away: slotWinner("r32-10"), advance: { match: "qf-2", slot: "away" } },
+  { id: "r16-7", round: "r16", home: slotWinner("r32-14"), away: slotWinner("r32-16"), advance: { match: "qf-4", slot: "home" } },
+  { id: "r16-8", round: "r16", home: slotWinner("r32-13"), away: slotWinner("r32-15"), advance: { match: "qf-4", slot: "away" } },
 
   { id: "qf-1", round: "qf", home: slotWinner("r16-1"), away: slotWinner("r16-2"), advance: { match: "sf-1", slot: "home" } },
-  { id: "qf-2", round: "qf", home: slotWinner("r16-3"), away: slotWinner("r16-4"), advance: { match: "sf-1", slot: "away" } },
-  { id: "qf-3", round: "qf", home: slotWinner("r16-5"), away: slotWinner("r16-6"), advance: { match: "sf-2", slot: "home" } },
+  { id: "qf-2", round: "qf", home: slotWinner("r16-5"), away: slotWinner("r16-6"), advance: { match: "sf-1", slot: "away" } },
+  { id: "qf-3", round: "qf", home: slotWinner("r16-3"), away: slotWinner("r16-4"), advance: { match: "sf-2", slot: "home" } },
   { id: "qf-4", round: "qf", home: slotWinner("r16-7"), away: slotWinner("r16-8"), advance: { match: "sf-2", slot: "away" } },
 
-  { id: "sf-1", round: "sf", label: "Semifinal 1", home: slotWinner("qf-1"), away: slotWinner("qf-2"), advance: { match: "final", slot: "home" } },
-  { id: "sf-2", round: "sf", label: "Semifinal 2", home: slotWinner("qf-3"), away: slotWinner("qf-4"), advance: { match: "final", slot: "away" } },
+  { id: "sf-1", round: "sf", home: slotWinner("qf-1"), away: slotWinner("qf-2"), advance: { match: "final", slot: "home" } },
+  { id: "sf-2", round: "sf", home: slotWinner("qf-3"), away: slotWinner("qf-4"), advance: { match: "final", slot: "away" } },
 
-  { id: "final", round: "final", label: "Final", home: slotWinner("sf-1"), away: slotWinner("sf-2"), advance: { match: "champion", slot: "home" } },
+  { id: "final", round: "final", home: slotWinner("sf-1"), away: slotWinner("sf-2"), advance: { match: "champion", slot: "home" } },
 ];
 
 const ROUND_LABELS = {
@@ -153,6 +159,62 @@ const WC_RANKINGS = [
   { country: "Chile", iso: "cl", wins: 0, winYears: "—", seconds: 0, secondYears: "—", thirds: 1, thirdYears: "1962" },
 ];
 
+/* Third-place assignment order (FIFA matches 74, 77, 79, 80, 81, 82, 85, 87) */
+const THIRD_PLACE_WINNER_SLOTS = [
+  { winnerGroup: "E", eligible: ["A", "B", "C", "D", "F"] },
+  { winnerGroup: "I", eligible: ["C", "D", "F", "G", "H"] },
+  { winnerGroup: "A", eligible: ["C", "E", "F", "H", "I"] },
+  { winnerGroup: "L", eligible: ["E", "H", "I", "J", "K"] },
+  { winnerGroup: "D", eligible: ["B", "E", "F", "I", "J"] },
+  { winnerGroup: "G", eligible: ["A", "E", "H", "I", "J"] },
+  { winnerGroup: "B", eligible: ["E", "F", "G", "I", "J"] },
+  { winnerGroup: "K", eligible: ["D", "E", "I", "J", "L"] },
+];
+
+const WC_RANK_INDEX = Object.fromEntries(
+  WC_RANKINGS.map((r, i) => [r.country, i])
+);
+
+function thirdPlaceRankScore(teamName) {
+  const idx = WC_RANK_INDEX[teamName];
+  return idx === undefined ? 999 : idx;
+}
+
+function getQualifiedThirdGroups(groupThird) {
+  return GROUP_KEYS
+    .filter((g) => groupThird[g])
+    .sort((a, b) => thirdPlaceRankScore(groupThird[a]) - thirdPlaceRankScore(groupThird[b]))
+    .slice(0, 8);
+}
+
+function assignThirdPlaceGroups(qualifiedGroups) {
+  const available = new Set(qualifiedGroups);
+
+  function backtrack(slotIndex, assignment) {
+    if (slotIndex === THIRD_PLACE_WINNER_SLOTS.length) return assignment;
+    const { winnerGroup, eligible } = THIRD_PLACE_WINNER_SLOTS[slotIndex];
+    for (const group of eligible) {
+      if (!available.has(group)) continue;
+      available.delete(group);
+      assignment[winnerGroup] = group;
+      const result = backtrack(slotIndex + 1, assignment);
+      if (result) return result;
+      delete assignment[winnerGroup];
+      available.add(group);
+    }
+    return null;
+  }
+
+  return backtrack(0, {}) || {};
+}
+
+function getThirdPlaceAssignment(groupThird) {
+  if (GROUP_KEYS.some((g) => !groupThird[g])) return {};
+  const qualified = getQualifiedThirdGroups(groupThird);
+  if (qualified.length < 8) return {};
+  return assignThirdPlaceGroups(qualified);
+}
+
 /* Bracket column definitions — pairs = groups of 2 match IDs that share a vertical connector */
 const LEFT_BRACKET_ROUNDS = [
   { round: "r32", pairs: [["r32-1","r32-2"],["r32-3","r32-4"],["r32-5","r32-6"],["r32-7","r32-8"]] },
@@ -175,8 +237,11 @@ function teamLabel(name) {
 
 function slotLabel(slot) {
   if (slot.type === "group") {
-    const pos = slot.position === 1 ? "1st" : "2nd";
+    const pos = slot.position === 1 ? "1st" : slot.position === 2 ? "2nd" : "3rd";
     return `${pos} Grp ${slot.group}`;
+  }
+  if (slot.type === "third") {
+    return `3rd (${slot.eligibleGroups.join("/")})`;
   }
   return "TBD";
 }

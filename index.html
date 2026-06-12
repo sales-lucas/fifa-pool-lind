@@ -55,17 +55,16 @@
 
     <section class="section" id="section-groups">
       <h2>Group Stage</h2>
-      <p class="section-hint">Pick 1st and 2nd place for each group — these fill the Round of 32 bracket.</p>
+      <p class="section-hint">Click a team for 🥇 1st, 🥈 2nd, and 🥉 3rd (click again to clear). The 4th-place team is eliminated.</p>
       <div id="groups-grid" class="groups-grid"></div>
     </section>
 
     <section class="section bracket-section" id="section-bracket">
       <h2>Tournament Bracket</h2>
-      <p class="section-hint">Click the team you think wins each match. Rounds unlock as you fill in the previous ones. Scroll horizontally to see the full bracket.</p>
+      <p class="section-hint">Click the team you think wins each knockout match.</p>
       <div class="bracket-scroll">
         <div id="bracket" class="bracket-wrapper"></div>
       </div>
-      <div id="champion-display" class="champion-display"></div>
     </section>
 
     <section class="section" id="section-rankings">
@@ -91,15 +90,14 @@
   </main>
 
   <footer class="footer">
-    <p id="error-message" class="error-message" role="alert" hidden></p>
     <button type="button" id="share-btn" class="share-btn">SHARE MY PICKS</button>
     <p class="footer-hint">Complete all picks to generate a shareable screenshot</p>
   </footer>
 
   <div id="toast" class="toast" role="status" hidden></div>
 
-  <div id="share-card-wrapper" class="share-card-wrapper" aria-hidden="true">
-    <div id="share-card" class="share-card"></div>
+  <div id="share-capture-wrapper" class="share-capture-wrapper" aria-hidden="true">
+    <div id="share-capture" class="share-capture"></div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
